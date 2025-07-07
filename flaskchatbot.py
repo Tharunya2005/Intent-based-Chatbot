@@ -13,7 +13,7 @@ from nltk.tokenize import word_tokenize
 
 app = Flask(__name__)
 
-# 1. Fix SSL issues (important for some systems)
+# Fix SSL issues (important for some systems)
 try:
     _create_unverified_https_context = ssl._create_default_https_context
 except AttributeError:
@@ -21,20 +21,14 @@ except AttributeError:
 else:
     ssl._create_default_https_context = _create_unverified_https_context
 
-# 2. Download necessary NLTK data
-nltk_data_dir = os.path.join(os.path.expanduser("~"), "nltk_data")
-if not os.path.exists(nltk_data_dir):
-    os.makedirs(nltk_data_dir)
+# NLP Setup
+lemmatizer = WordNetLemmatizer()
 
-for dataset in ["punkt", "wordnet"]:
-    try:
-        nltk.data.find(f"tokenizers/{dataset}" if dataset == "punkt" else dataset)
-    except LookupError:
-        nltk.download(dataset, download_dir=nltk_data_dir)
+def preprocess_text(text):
+    words = word_tokenize(text.lower())
+    return [lemmatizer.lemmatize(word) for word in words]
 
-nltk.data.path.append(nltk_data_dir)
-
-# 3. Load intents JSON
+# Load intents JSON
 file_path = os.path.abspath("Intent.json")
 try:
     with open(file_path, "r", encoding="utf-8") as file:
@@ -43,14 +37,7 @@ except Exception as e:
     print(f"❌ Error loading intents: {e}")
     intents = {"intents": []}
 
-# 4. NLP Setup
-lemmatizer = WordNetLemmatizer()
-
-def preprocess_text(text):
-    words = word_tokenize(text.lower())
-    return [lemmatizer.lemmatize(word) for word in words]
-
-# 5. Core chatbot logic
+# Core chatbot logic
 def chatbot(input_text):
     input_words = preprocess_text(input_text)
     best_match = None
@@ -68,7 +55,7 @@ def chatbot(input_text):
         return random.choice(best_match["responses"])
     return "I'm still learning, please rephrase your question."
 
-# 6. Routes
+# Routes
 @app.route("/")
 def home():
     return render_template("index.html")
@@ -105,7 +92,19 @@ def get_response():
 
     return jsonify({"response": response})
 
-# 7. Run the app
+# Run the app
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    # Download NLTK data only once
+    nltk_data_dir = os.path.join(os.path.expanduser("~"), "nltk_data")
+    if not os.path.exists(nltk_data_dir):
+        os.makedirs(nltk_data_dir)
+
+    for dataset in ["punkt", "wordnet"]:
+        try:
+            nltk.data.find(f"tokenizers/{dataset}" if dataset == "punkt" else dataset)
+        except LookupError:
+            nltk.download(dataset, download_dir=nltk_data_dir)
+
+    nltk.data.path.append(nltk_data_dir)
+
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
