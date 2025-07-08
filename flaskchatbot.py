@@ -21,6 +21,35 @@ except AttributeError:
 else:
     ssl._create_default_https_context = _create_unverified_https_context
 
+# --- NLTK Data Setup (Updated for Render deployment) ---
+# Define the directory where NLTK data will be stored on Render
+# This should match the download_dir in your render.yaml buildCommand
+nltk_data_dir = "./.nltk_data" 
+
+# Ensure the directory exists (might be created by buildCommand, but good practice)
+if not os.path.exists(nltk_data_dir):
+    os.makedirs(nltk_data_dir)
+
+# Add the custom NLTK data path to NLTK's search path
+nltk.data.path.append(nltk_data_dir)
+
+# Download NLTK data if not already present (primarily for local development,
+# as Render's buildCommand will handle it during deployment)
+# We moved the primary download to render.yaml's build command for deployment reliability.
+# This block is mainly for local testing and initial setup.
+for dataset in ["punkt", "wordnet", "omw-1.4"]: # Ensure all needed datasets are listed
+    try:
+        # For 'punkt', it's under 'tokenizers/punkt'
+        # For 'wordnet' and 'omw-1.4', they are directly at the dataset root
+        if dataset == "punkt":
+            nltk.data.find(f"tokenizers/{dataset}")
+        else:
+            nltk.data.find(dataset)
+    except LookupError: # Use LookupError when checking if resource is found
+        print(f"Downloading NLTK dataset: {dataset}...")
+        nltk.download(dataset, download_dir=nltk_data_dir)
+        print(f"Finished downloading {dataset}.")
+
 # NLP Setup
 lemmatizer = WordNetLemmatizer()
 
@@ -94,17 +123,4 @@ def get_response():
 
 # Run the app
 if __name__ == "__main__":
-    # Download NLTK data only once
-    nltk_data_dir = os.path.join(os.path.expanduser("~"), "nltk_data")
-    if not os.path.exists(nltk_data_dir):
-        os.makedirs(nltk_data_dir)
-
-    for dataset in ["punkt", "wordnet"]:
-        try:
-            nltk.data.find(f"tokenizers/{dataset}" if dataset == "punkt" else dataset)
-        except LookupError:
-            nltk.download(dataset, download_dir=nltk_data_dir)
-
-    nltk.data.path.append(nltk_data_dir)
-
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
