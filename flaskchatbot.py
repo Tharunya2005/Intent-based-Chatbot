@@ -13,7 +13,6 @@ from nltk.tokenize import word_tokenize
 
 app = Flask(__name__)
 
-# Fix SSL issues (important for some systems)
 try:
     _create_unverified_https_context = ssl._create_default_https_context
 except AttributeError:
@@ -21,49 +20,36 @@ except AttributeError:
 else:
     ssl._create_default_https_context = _create_unverified_https_context
 
-# --- NLTK Data Setup (Updated for Render deployment) ---
-# Define the directory where NLTK data will be stored on Render
-# This should match the download_dir in your render.yaml buildCommand
 nltk_data_dir = "./.nltk_data" 
 
-# Ensure the directory exists (might be created by buildCommand, but good practice)
 if not os.path.exists(nltk_data_dir):
     os.makedirs(nltk_data_dir)
 
-# Add the custom NLTK data path to NLTK's search path
 nltk.data.path.append(nltk_data_dir)
 
-# Download NLTK data if not already present (primarily for local development,
-# as Render's buildCommand will handle it during deployment)
-# We moved the primary download to render.yaml's build command for deployment reliability.
-# This block is mainly for local testing and initial setup.
-for dataset in ["punkt", "wordnet", "omw-1.4"]: # Ensure all needed datasets are listed
+for dataset in ["punkt", "wordnet", "omw-1.4"]:
     try:
-        # For 'punkt', it's under 'tokenizers/punkt'
-        # For 'wordnet' and 'omw-1.4', they are directly at the dataset root
         if dataset == "punkt":
             nltk.data.find(f"tokenizers/{dataset}")
         else:
             nltk.data.find(dataset)
-    except LookupError: # Use LookupError when checking if resource is found
+    except LookupError: 
         print(f"Downloading NLTK dataset: {dataset}...")
         nltk.download(dataset, download_dir=nltk_data_dir)
         print(f"Finished downloading {dataset}.")
 
-# NLP Setup
 lemmatizer = WordNetLemmatizer()
 
 def preprocess_text(text):
     words = word_tokenize(text.lower())
     return [lemmatizer.lemmatize(word) for word in words]
 
-# Load intents JSON
 file_path = os.path.abspath("Intent.json")
 try:
     with open(file_path, "r", encoding="utf-8") as file:
         intents = json.load(file)
 except Exception as e:
-    print(f"❌ Error loading intents: {e}")
+    print(f" Error loading intents: {e}")
     intents = {"intents": []}
 
 # Core chatbot logic
@@ -84,7 +70,6 @@ def chatbot(input_text):
         return random.choice(best_match["responses"])
     return "I'm still learning, please rephrase your question."
 
-# Routes
 @app.route("/")
 def home():
     return render_template("index.html")
@@ -99,8 +84,8 @@ def history():
     try:
         with open('chat_log.csv', 'r', encoding='utf-8') as f:
             reader = csv.reader(f)
-            next(reader, None)  # skip header if exists
-            history_data = list(reader)[-10:]  # Show last 10 entries
+            next(reader, None)
+            history_data = list(reader)[-10:] 
     except FileNotFoundError:
         history_data = []
 
@@ -111,7 +96,6 @@ def get_response():
     user_input = request.json.get("message")
     response = chatbot(user_input)
 
-    # Save conversation to chat log
     log_exists = os.path.exists('chat_log.csv')
     with open('chat_log.csv', 'a', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
@@ -121,6 +105,5 @@ def get_response():
 
     return jsonify({"response": response})
 
-# Run the app
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
